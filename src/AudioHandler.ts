@@ -74,6 +74,11 @@ export class AudioHandler {
 				}
 			);
 
+			const segments = response.data.segments;
+      		const concatenatedText = segments.map((segment) => segment.text).join('\n');
+
+			
+
 			// Determine if a new file should be created
 			const activeView =
 				this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
@@ -83,7 +88,7 @@ export class AudioHandler {
 			if (shouldCreateNewFile) {
 				await this.plugin.app.vault.create(
 					noteFilePath,
-					`![[${audioFilePath}]]\n${response.data.text}`
+					`![[${audioFilePath}]]\n${concatenatedText}`
 				);
 				await this.plugin.app.workspace.openLinkText(
 					noteFilePath,
@@ -98,12 +103,12 @@ export class AudioHandler {
 					)?.editor;
 				if (editor) {
 					const cursorPosition = editor.getCursor();
-					editor.replaceRange(response.data.text, cursorPosition);
+					editor.replaceRange(concatenatedText, cursorPosition);
 
 					// Move the cursor to the end of the inserted text
 					const newPosition = {
 						line: cursorPosition.line,
-						ch: cursorPosition.ch + response.data.text.length,
+						ch: cursorPosition.ch + concatenatedText.length,
 					};
 					editor.setCursor(newPosition);
 				}
