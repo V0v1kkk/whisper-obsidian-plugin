@@ -1,239 +1,316 @@
 import Whisper from "main";
-import { App, PluginSettingTab, Setting, TFolder } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import { SettingsManager } from "./SettingsManager";
 
 export class WhisperSettingsTab extends PluginSettingTab {
-	private plugin: Whisper;
-	private settingsManager: SettingsManager;
-	private createNewFileInput: Setting;
-	private saveAudioFileInput: Setting;
+    private plugin: Whisper;
+    private settingsManager: SettingsManager;
 
-	constructor(app: App, plugin: Whisper) {
-		super(app, plugin);
-		this.plugin = plugin;
-		this.settingsManager = plugin.settingsManager;
-	}
+    constructor(app: App, plugin: Whisper) {
+        super(app, plugin);
+        this.plugin = plugin;
+        this.settingsManager = plugin.settingsManager;
+    }
 
-	display(): void {
-		const { containerEl } = this;
+    display(): void {
+        const { containerEl } = this;
 
-		containerEl.empty();
-		this.createHeader();
-		this.createApiKeySetting();
-		this.createApiUrlSetting();
-		this.createModelSetting();
-		this.createPromptSetting();
-		this.createLanguageSetting();
-		this.createSaveAudioFileToggleSetting();
-		this.createSaveAudioFilePathSetting();
-		this.createNewFileToggleSetting();
-		this.createNewFilePathSetting();
-		this.createDebugModeToggleSetting();
-	}
+        containerEl.empty();
 
-	private getUniqueFolders(): TFolder[] {
-		const files = this.app.vault.getMarkdownFiles();
-		const folderSet = new Set<TFolder>();
+        // General Settings Section
+        this.createHeader("General Settings");
+        this.createApiKeySetting();
+        this.createApiUrlSetting();
+        this.createModelSetting();
+        this.createPromptSetting();
+        this.createLanguageSetting();
+		this.createUseSegmentsSetting();
 
-		for (const file of files) {
-			const parentFolder = file.parent;
-			if (parentFolder && parentFolder instanceof TFolder) {
-				folderSet.add(parentFolder);
-			}
-		}
+        // Divider
+        containerEl.createEl("hr");
 
-		return Array.from(folderSet);
-	}
+        // Audio Settings Section
+        this.createHeader("Audio Settings");
+        this.createSaveAudioFileToggleSetting();
+        this.createSaveAudioFilePathSetting();
+        this.createNewFileToggleSetting();
+        this.createNewFilePathSetting();
 
-	private createHeader(): void {
-		this.containerEl.createEl("h2", { text: "Settings for Whisper." });
-	}
+        // Divider
+        containerEl.createEl("hr");
 
-	private createTextSetting(
-		name: string,
-		desc: string,
-		placeholder: string,
-		value: string,
-		onChange: (value: string) => Promise<void>
-	): void {
-		new Setting(this.containerEl)
-			.setName(name)
-			.setDesc(desc)
-			.addText((text) =>
-				text
-					.setPlaceholder(placeholder)
-					.setValue(value)
-					.onChange(async (value) => await onChange(value))
-			);
-	}
+        // Post Processing Settings Section
+        this.createHeader("Post Processing Settings");
+        this.createPostProcessingEnabledToggleSetting();
+        this.createPostProcessingApiKeySetting();
+        this.createPostProcessingApiBaseAddressSetting();
+        this.createPostProcessingModelNameSetting();
+        this.createPostProcessingCustomPromptSetting();
 
-	private createApiKeySetting(): void {
-		this.createTextSetting(
-			"API Key",
-			"Enter your OpenAI API key",
-			"sk-...xxxx",
-			this.plugin.settings.apiKey,
-			async (value) => {
-				this.plugin.settings.apiKey = value;
-				await this.settingsManager.saveSettings(this.plugin.settings);
-			}
-		);
-	}
+		// Divider
+        containerEl.createEl("hr");
 
-	private createApiUrlSetting(): void {
-		this.createTextSetting(
-			"API URL",
-			"Specify the endpoint that will be used to make requests to",
-			"https://api.your-custom-url.com",
-			this.plugin.settings.apiUrl,
-			async (value) => {
-				this.plugin.settings.apiUrl = value;
-				await this.settingsManager.saveSettings(this.plugin.settings);
-			}
-		);
-	}
+        // Debug Settings Section
+        this.createHeader("Debug Settings");
+        this.createDebugModeToggleSetting();
+    }
 
-	private createModelSetting(): void {
-		this.createTextSetting(
-			"Model",
-			"Specify the machine learning model to use for generating text",
-			"whisper-1",
-			this.plugin.settings.model,
-			async (value) => {
-				this.plugin.settings.model = value;
-				await this.settingsManager.saveSettings(this.plugin.settings);
-			}
-		);
-	}
+    // Helper Methods
+    private createHeader(text: string): void {
+        this.containerEl.createEl("h2", { text });
+    }
 
-	private createPromptSetting(): void {
-		this.createTextSetting(
-			"Prompt",
-			"Optional: Add words with their correct spellings to help with transcription. Make sure it matches the chosen language.",
-			"Example: ZyntriQix, Digique Plus, CynapseFive",
-			this.plugin.settings.prompt,
-			async (value) => {
-				this.plugin.settings.prompt = value;
-				await this.settingsManager.saveSettings(this.plugin.settings);
-			}
-		);
-	}
+    private createTextSetting(
+        name: string,
+        description: string,
+        placeholder: string,
+        value: string,
+        onChange: (value: string) => Promise<void>
+    ): void {
+        new Setting(this.containerEl)
+            .setName(name)
+            .setDesc(description)
+            .addText((text) =>
+                text
+                    .setPlaceholder(placeholder)
+                    .setValue(value)
+                    .onChange(onChange)
+            );
+    }
 
-	private createLanguageSetting(): void {
-		this.createTextSetting(
-			"Language",
-			"Specify the language of the message being whispered",
-			"en",
-			this.plugin.settings.language,
-			async (value) => {
-				this.plugin.settings.language = value;
-				await this.settingsManager.saveSettings(this.plugin.settings);
-			}
-		);
-	}
+    private createTextAreaSetting(
+        name: string,
+        description: string,
+        placeholder: string,
+        value: string,
+        onChange: (value: string) => Promise<void>
+    ): void {
+        new Setting(this.containerEl)
+            .setName(name)
+            .setDesc(description)
+            .addTextArea((text) => {
+                text
+                    .setPlaceholder(placeholder)
+                    .setValue(value)
+                    .onChange(onChange);
+                text.inputEl.rows = 5; // Increase the size of the text area
+            });
+    }
 
-	private createSaveAudioFileToggleSetting(): void {
-		new Setting(this.containerEl)
-			.setName("Save recording")
-			.setDesc(
-				"Turn on to save the audio file after sending it to the Whisper API"
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.saveAudioFile)
-					.onChange(async (value) => {
-						this.plugin.settings.saveAudioFile = value;
-						if (!value) {
-							this.plugin.settings.saveAudioFilePath = "";
-						}
-						await this.settingsManager.saveSettings(
-							this.plugin.settings
-						);
-						this.saveAudioFileInput.setDisabled(!value);
-					})
-			);
-	}
+    // General Settings Methods
+    private createApiKeySetting(): void {
+        this.createTextSetting(
+            "API Key",
+            "Enter your OpenAI API key.",
+            "sk-...",
+            this.plugin.settings.apiKey,
+            async (value) => {
+                this.plugin.settings.apiKey = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
 
-	private createSaveAudioFilePathSetting(): void {
-		this.saveAudioFileInput = new Setting(this.containerEl)
-			.setName("Recordings folder")
-			.setDesc(
-				"Specify the path in the vault where to save the audio files"
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Example: folder/audio")
-					.setValue(this.plugin.settings.saveAudioFilePath)
-					.onChange(async (value) => {
-						this.plugin.settings.saveAudioFilePath = value;
-						await this.settingsManager.saveSettings(
-							this.plugin.settings
-						);
-					})
-			)
-			.setDisabled(!this.plugin.settings.saveAudioFile);
-	}
+    private createApiUrlSetting(): void {
+        this.createTextSetting(
+            "API URL",
+            "Enter the API URL for transcription.",
+            "https://api.openai.com/v1/audio/transcriptions",
+            this.plugin.settings.apiUrl,
+            async (value) => {
+                this.plugin.settings.apiUrl = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
 
-	private createNewFileToggleSetting(): void {
-		new Setting(this.containerEl)
-			.setName("Save transcription")
-			.setDesc(
-				"Turn on to create a new file for each recording, or leave off to add transcriptions at your cursor"
-			)
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.createNewFileAfterRecording)
-					.onChange(async (value) => {
-						this.plugin.settings.createNewFileAfterRecording =
-							value;
-						if (!value) {
-							this.plugin.settings.createNewFileAfterRecordingPath =
-								"";
-						}
-						await this.settingsManager.saveSettings(
-							this.plugin.settings
-						);
-						this.createNewFileInput.setDisabled(!value);
-					});
-			});
-	}
+    private createModelSetting(): void {
+        this.createTextSetting(
+            "Model",
+            "Specify the model to use for transcription.",
+            "whisper-1",
+            this.plugin.settings.model,
+            async (value) => {
+                this.plugin.settings.model = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
 
-	private createNewFilePathSetting(): void {
-		this.createNewFileInput = new Setting(this.containerEl)
-			.setName("Transcriptions folder")
-			.setDesc(
-				"Specify the path in the vault where to save the transcription files"
-			)
-			.addText((text) => {
-				text.setPlaceholder("Example: folder/note")
-					.setValue(
-						this.plugin.settings.createNewFileAfterRecordingPath
-					)
-					.onChange(async (value) => {
-						this.plugin.settings.createNewFileAfterRecordingPath =
-							value;
-						await this.settingsManager.saveSettings(
-							this.plugin.settings
-						);
-					});
-			});
-	}
+    private createPromptSetting(): void {
+        this.createTextAreaSetting(
+            "Prompt",
+            "Enter a custom prompt to guide the transcription.",
+            "Your custom prompt here...",
+            this.plugin.settings.prompt,
+            async (value) => {
+                this.plugin.settings.prompt = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
 
-	private createDebugModeToggleSetting(): void {
-		new Setting(this.containerEl)
-			.setName("Debug Mode")
-			.setDesc(
-				"Turn on to increase the plugin's verbosity for troubleshooting."
-			)
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.debugMode)
-					.onChange(async (value) => {
-						this.plugin.settings.debugMode = value;
-						await this.settingsManager.saveSettings(
-							this.plugin.settings
-						);
-					});
-			});
-	}
+    private createLanguageSetting(): void {
+        this.createTextSetting(
+            "Language",
+            "Specify the language for transcription.",
+            "en",
+            this.plugin.settings.language,
+            async (value) => {
+                this.plugin.settings.language = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+    // Audio Settings Methods
+    private createSaveAudioFileToggleSetting(): void {
+        new Setting(this.containerEl)
+            .setName("Save Audio File")
+            .setDesc("Enable to save the recorded audio file.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.saveAudioFile)
+                    .onChange(async (value) => {
+                        this.plugin.settings.saveAudioFile = value;
+                        await this.settingsManager.saveSettings(this.plugin.settings);
+                    })
+            );
+    }
+
+    private createSaveAudioFilePathSetting(): void {
+        this.createTextSetting(
+            "Audio File Save Path",
+            "Specify the path to save audio files.",
+            "Audio/",
+            this.plugin.settings.saveAudioFilePath,
+            async (value) => {
+                this.plugin.settings.saveAudioFilePath = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+    private createNewFileToggleSetting(): void {
+        new Setting(this.containerEl)
+            .setName("Create New Note After Recording")
+            .setDesc("Enable to create a new note after recording.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.createNewFileAfterRecording)
+                    .onChange(async (value) => {
+                        this.plugin.settings.createNewFileAfterRecording = value;
+                        await this.settingsManager.saveSettings(this.plugin.settings);
+                    })
+            );
+    }
+
+    private createNewFilePathSetting(): void {
+        this.createTextSetting(
+            "New Note Save Path",
+            "Specify the path to save new notes.",
+            "Notes/",
+            this.plugin.settings.createNewFileAfterRecordingPath,
+            async (value) => {
+                this.plugin.settings.createNewFileAfterRecordingPath = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+	private createUseSegmentsSetting(): void {
+        new Setting(this.containerEl)
+            .setName("Use Segments From Transcription")
+            .setDesc("Enable to use segments from the transcription. Migth be better in some self-hosted scenarios.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.useSegmentsFromTranscription)
+                    .onChange(async (value) => {
+                        this.plugin.settings.useSegmentsFromTranscription = value;
+                        await this.settingsManager.saveSettings(this.plugin.settings);
+                    })
+            );
+    }
+
+    // Debug Settings Methods
+    private createDebugModeToggleSetting(): void {
+        new Setting(this.containerEl)
+            .setName("Debug Mode")
+            .setDesc("Enable to show debug information.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.debugMode)
+                    .onChange(async (value) => {
+                        this.plugin.settings.debugMode = value;
+                        await this.settingsManager.saveSettings(this.plugin.settings);
+                    })
+            );
+    }
+
+    // Post Processing Settings Methods
+    private createPostProcessingEnabledToggleSetting(): void {
+        new Setting(this.containerEl)
+            .setName("Enable Post Processing")
+            .setDesc("Enable or disable post processing of transcribed text.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.postProcessingEnabled)
+                    .onChange(async (value) => {
+                        this.plugin.settings.postProcessingEnabled = value;
+                        await this.settingsManager.saveSettings(this.plugin.settings);
+                    })
+            );
+    }
+
+    private createPostProcessingApiKeySetting(): void {
+        this.createTextSetting(
+            "Post Processing API Key",
+            "Enter your API key for post processing.",
+            "sk-...xxxx",
+            this.plugin.settings.postProcessingApiKey,
+            async (value) => {
+                this.plugin.settings.postProcessingApiKey = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+    private createPostProcessingApiBaseAddressSetting(): void {
+        this.createTextSetting(
+            "Post Processing API Base Address",
+            "Specify the endpoint for post processing.",
+            "https://api.openai.com",
+            this.plugin.settings.postProcessingApiBaseAddress,
+            async (value) => {
+                this.plugin.settings.postProcessingApiBaseAddress = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+    private createPostProcessingModelNameSetting(): void {
+        this.createTextSetting(
+            "Post Processing Model Name",
+            "Specify the model to use for post processing.",
+            "gpt-3.5-turbo",
+            this.plugin.settings.postProcessingModelName,
+            async (value) => {
+                this.plugin.settings.postProcessingModelName = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
+
+    private createPostProcessingCustomPromptSetting(): void {
+        this.createTextAreaSetting(
+            "Post Processing Custom Prompt",
+            "Add a custom prompt to guide post processing.",
+            "Your custom prompt here...",
+            this.plugin.settings.postProcessingCustomPrompt,
+            async (value) => {
+                this.plugin.settings.postProcessingCustomPrompt = value;
+                await this.settingsManager.saveSettings(this.plugin.settings);
+            }
+        );
+    }
 }

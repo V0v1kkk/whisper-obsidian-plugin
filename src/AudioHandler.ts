@@ -74,10 +74,11 @@ export class AudioHandler {
 				}
 			);
 
-			const segments = response.data.segments;
-      		const concatenatedText = segments.map((segment) => segment.text).join('\n');
+			let resultText = this.plugin.settings.useSegmentsFromTranscription 
+				? response.data.segments.map((segment) => segment.text).join('\n') 
+				: response.data.text;
 
-			
+			resultText = await this.postprocessText(resultText);
 
 			// Determine if a new file should be created
 			const activeView =
@@ -88,7 +89,7 @@ export class AudioHandler {
 			if (shouldCreateNewFile) {
 				await this.plugin.app.vault.create(
 					noteFilePath,
-					`![[${audioFilePath}]]\n${concatenatedText}`
+					`![[${audioFilePath}]]\n${resultText}`
 				);
 				await this.plugin.app.workspace.openLinkText(
 					noteFilePath,
@@ -103,12 +104,12 @@ export class AudioHandler {
 					)?.editor;
 				if (editor) {
 					const cursorPosition = editor.getCursor();
-					editor.replaceRange(concatenatedText, cursorPosition);
+					editor.replaceRange(resultText, cursorPosition);
 
 					// Move the cursor to the end of the inserted text
 					const newPosition = {
 						line: cursorPosition.line,
-						ch: cursorPosition.ch + concatenatedText.length,
+						ch: cursorPosition.ch + resultText.length,
 					};
 					editor.setCursor(newPosition);
 				}
@@ -118,6 +119,68 @@ export class AudioHandler {
 		} catch (err) {
 			console.error("Error parsing audio:", err);
 			new Notice("Error parsing audio: " + err.message);
+		}
+	}
+
+	private async postprocessText(text: string): Promise<string> {
+		if (!this.plugin.settings.postProcessingEnabled || text.length === 0) {
+			// Return the original text if post-processing is disabled or the text is empty
+			return text;
+		}
+	
+		const prompt = `${this.plugin.settings.postProcessingCustomPrompt}\n\n${text}`;
+	
+		try {
+			const apiBase = this.plugin.settings.postProcessingApiBaseAddress;
+			const modelName = this.plugin.settings.postProcessingModelName;
+			const apiKey = this.plugin.settings.postProcessingApiKey;
+	
+			// Determine the API endpoint based on the model name
+			let apiUrl = `${apiBase}/v1/completions`;
+			let requestData: any = {
+				model: modelName,
+				prompt: prompt,
+				//max_tokens: 1000, // Adjust based on your needs
+			};
+	
+			// If using a ChatGPT model, adjust the endpoint and request format
+			if (modelName.startsWith("gpt-3.5-") || modelName.startsWith("gpt-4")) {
+				apiUrl = `${apiBase}/v1/chat/completions`;
+				requestData = {
+					model: modelName,
+					messages: [
+						{ role: "system", content: this.plugin.settings.postProcessingCustomPrompt },
+						{ role: "user", content: text },
+					],
+					//max_tokens: 1000, // Adjust based on your needs
+				};
+			}
+	
+			const response = await axios.post(apiUrl, requestData, {
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKey}`,
+				},
+			});
+	
+			// Extract the processed text based on the response format
+			let processedText = text;
+			if (response.data.choices && response.data.choices.length > 0) {
+				if (response.data.choices[0].text) {
+					// For completion models
+					processedText = response.data.choices[0].text.trim();
+				} else if (response.data.choices[0].message && response.data.choices[0].message.content) {
+					// For chat models
+					processedText = response.data.choices[0].message.content.trim();
+				}
+			}
+	
+			return processedText;
+		} catch (error) {
+			console.error("Error during postprocessing:", error);
+			new Notice("Error during postprocessing: " + error.message);
+			// Return the original text if post-processing fails
+			return text;
 		}
 	}
 }

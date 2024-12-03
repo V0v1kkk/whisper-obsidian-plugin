@@ -11,6 +11,12 @@ export interface WhisperSettings {
 	debugMode: boolean;
 	createNewFileAfterRecording: boolean;
 	createNewFileAfterRecordingPath: string;
+	useSegmentsFromTranscription: boolean;
+	postProcessingEnabled: boolean;
+	postProcessingApiKey: string;
+	postProcessingApiBaseAddress: string;
+	postProcessingModelName: string;
+	postProcessingCustomPrompt: string;
 }
 
 export const DEFAULT_SETTINGS: WhisperSettings = {
@@ -24,6 +30,12 @@ export const DEFAULT_SETTINGS: WhisperSettings = {
 	debugMode: false,
 	createNewFileAfterRecording: true,
 	createNewFileAfterRecordingPath: "",
+	useSegmentsFromTranscription: false,
+	postProcessingEnabled: false,
+	postProcessingApiKey: "sk-...xxxx",
+    postProcessingApiBaseAddress: "https://api.openai.com/v1/engines",
+    postProcessingModelName: "gpt-3.5-turbo",
+    postProcessingCustomPrompt: "",
 };
 
 export class SettingsManager {
