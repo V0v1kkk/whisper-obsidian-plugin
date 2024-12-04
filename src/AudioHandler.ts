@@ -3,6 +3,14 @@ import Whisper from "main";
 import { Notice, MarkdownView } from "obsidian";
 import { getBaseFileName } from "./utils";
 
+interface Segment {
+    end: number;
+    id: number;
+    start: number;
+    text: string;
+    tokens: number[];
+}
+
 export class AudioHandler {
 	private plugin: Whisper;
 
@@ -75,7 +83,7 @@ export class AudioHandler {
 			);
 
 			let resultText = this.plugin.settings.useSegmentsFromTranscription 
-				? response.data.segments.map((segment) => segment.text).join('\n') 
+				? response.data.segments.map((segment: Segment) => segment.text).join('\n') 
 				: response.data.text;
 
 			resultText = await this.postprocessText(resultText);
